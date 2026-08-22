@@ -159,7 +159,32 @@ final class SpecPatchingTests: XCTestCase {
         XCTAssertEqual(appInfosFields, ["appStoreState", "ageRatingDeclaration"])
         XCTAssertEqual(ageRatingFields, ["gambling", "kidsAgeBand", "lootBox"])
     }
+
+    func testRequiresNominationRelationshipDataArrays() throws {
+        let input = """
+        {"components":{"schemas":{"NominationCreateRequest":{"properties":{"data":{"properties":{"relationships":{"properties":{"relatedApps":{"type":"object","properties":{"data":{"type":"array"}},"required":["data"]},"inAppEvents":{"type":"object","properties":{"data":{"type":"array"}}},"supportedTerritories":{"type":"object","properties":{"data":{"type":"array"}}}}}}}}},"NominationUpdateRequest":{"properties":{"data":{"properties":{"relationships":{"properties":{"relatedApps":{"type":"object","properties":{"data":{"type":"array"}}},"inAppEvents":{"type":"object","properties":{"data":{"type":"array"}}},"supportedTerritories":{"type":"object","properties":{"data":{"type":"array"}}}}}}}}}}}}
+        """
+        var parser = JSONParser(bytes: Array(input.utf8))
+        var root = JSONValue.object(try parser.parseObject())
+
+        let result = try SpecPatcher.patch(&root)
+
+        XCTAssertTrue(result.didChange)
+        XCTAssertTrue(result.changes.contains("Ensured Nomination relationship data arrays are required"))
+
+        let schemas = root.objectValue?["components"]?.objectValue?["schemas"]?.objectValue
+        for schemaName in ["NominationCreateRequest", "NominationUpdateRequest"] {
+            let relationshipProperties =
+                schemas?[schemaName]?.objectValue?["properties"]?.objectValue?["data"]?
+                .objectValue?["properties"]?.objectValue?["relationships"]?
+                .objectValue?["properties"]?.objectValue
+
+            for relationshipName in ["relatedApps", "inAppEvents", "supportedTerritories"] {
+                let required = relationshipProperties?[relationshipName]?.objectValue?["required"]?.arrayValue?.compactMap(\.stringValue)
+                XCTAssertEqual(required, ["data"], "\(schemaName).\(relationshipName)")
+            }
+        }
+    }
 }
 #endif
-
 

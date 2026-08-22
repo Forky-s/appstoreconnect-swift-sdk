@@ -137,7 +137,7 @@ public struct NominationCreateRequest: Codable {
 			}
 
 			public struct InAppEvents: Codable {
-				public var data: [Datum]?
+				public var data: [Datum]
 
 				public struct Datum: Codable, Identifiable {
 					public var type: `Type`
@@ -165,23 +165,23 @@ public struct NominationCreateRequest: Codable {
 					}
 				}
 
-				public init(data: [Datum]? = nil) {
+				public init(data: [Datum]) {
 					self.data = data
 				}
 
 				public init(from decoder: Decoder) throws {
 					let values = try decoder.container(keyedBy: StringCodingKey.self)
-					self.data = try values.decodeIfPresent([Datum].self, forKey: "data")
+					self.data = try values.decode([Datum].self, forKey: "data")
 				}
 
 				public func encode(to encoder: Encoder) throws {
 					var values = encoder.container(keyedBy: StringCodingKey.self)
-					try values.encodeIfPresent(data, forKey: "data")
+					try values.encode(data, forKey: "data")
 				}
 			}
 
 			public struct SupportedTerritories: Codable {
-				public var data: [Datum]?
+				public var data: [Datum]
 
 				public struct Datum: Codable, Identifiable {
 					public var type: `Type`
@@ -209,18 +209,18 @@ public struct NominationCreateRequest: Codable {
 					}
 				}
 
-				public init(data: [Datum]? = nil) {
+				public init(data: [Datum]) {
 					self.data = data
 				}
 
 				public init(from decoder: Decoder) throws {
 					let values = try decoder.container(keyedBy: StringCodingKey.self)
-					self.data = try values.decodeIfPresent([Datum].self, forKey: "data")
+					self.data = try values.decode([Datum].self, forKey: "data")
 				}
 
 				public func encode(to encoder: Encoder) throws {
 					var values = encoder.container(keyedBy: StringCodingKey.self)
-					try values.encodeIfPresent(data, forKey: "data")
+					try values.encode(data, forKey: "data")
 				}
 			}
 

@@ -46,7 +46,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Swiftly
-        uses: vapor/swiftly-action@v0.2.0
+        uses: vapor/swiftly-action@v0.2.1
         with:
           toolchain: latest
       - name: Test

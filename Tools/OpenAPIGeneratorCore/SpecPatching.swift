@@ -26,6 +26,7 @@ public enum SpecPatcher {
         case responseErrorSchema = "response-error-schema"
         case winBackOfferPriceInlineCreateFields = "winbackofferpriceinlinecreate-fields"
         case removeAppInfoKidsAgeBandField = "remove-appinfo-kidsageband-field"
+        case nominationRelationshipDataArrays = "nomination-relationship-data-arrays"
     }
 
     public struct RuleResult {
@@ -103,6 +104,13 @@ public enum SpecPatcher {
         if winBackOfferPrice.didChange {
             didChange = true
             changes.append("Added relationships to WinBackOfferPriceInlineCreate")
+        }
+
+        let nominationRelationshipData = ensureNominationRelationshipDataArraysAreRequired(&rootObject)
+        rules.append(.init(id: .nominationRelationshipDataArrays, didChange: nominationRelationshipData.didChange, matchCount: nominationRelationshipData.matchCount))
+        if nominationRelationshipData.didChange {
+            didChange = true
+            changes.append("Ensured Nomination relationship data arrays are required")
         }
 
         // Apple still lists kidsAgeBand in fields[appInfos], but the live API rejects that
@@ -353,6 +361,72 @@ private func ensureWinBackOfferPriceInlineCreateFields(_ root: inout OrderedDict
     return .init(didChange: didChange, matchCount: 1)
 }
 
+/// Apple's spec marks several Nomination relationship `data` arrays as optional,
+/// which allows generated requests to encode a relationship as `{}`. The live API
+/// rejects that shape and requires `data` to be an array whenever the relationship
+/// object is present.
+private func ensureNominationRelationshipDataArraysAreRequired(_ root: inout OrderedDictionary<String, JSONValue>) -> PatchOutcome {
+    guard
+        var components = root["components"]?.objectValue,
+        var schemas = components["schemas"]?.objectValue
+    else {
+        return .init(didChange: false, matchCount: 0)
+    }
+
+    var didChange = false
+    var matchCount = 0
+    let schemaNames = ["NominationCreateRequest", "NominationUpdateRequest"]
+    let relationshipNames = ["relatedApps", "inAppEvents", "supportedTerritories"]
+    let requiredData: JSONValue = .array([.string("data")])
+
+    for schemaName in schemaNames {
+        guard
+            var schema = schemas[schemaName]?.objectValue,
+            var properties = schema["properties"]?.objectValue,
+            var data = properties["data"]?.objectValue,
+            var dataProperties = data["properties"]?.objectValue,
+            var relationships = dataProperties["relationships"]?.objectValue,
+            var relationshipProperties = relationships["properties"]?.objectValue
+        else {
+            continue
+        }
+
+        var relationshipPropertiesChanged = false
+
+        for relationshipName in relationshipNames {
+            guard var relationship = relationshipProperties[relationshipName]?.objectValue else {
+                continue
+            }
+
+            matchCount += 1
+            guard relationship["required"] != requiredData else {
+                continue
+            }
+
+            relationship["required"] = requiredData
+            relationshipProperties[relationshipName] = .object(relationship)
+            relationshipPropertiesChanged = true
+            didChange = true
+        }
+
+        if relationshipPropertiesChanged {
+            relationships["properties"] = .object(relationshipProperties)
+            dataProperties["relationships"] = .object(relationships)
+            data["properties"] = .object(dataProperties)
+            properties["data"] = .object(data)
+            schema["properties"] = .object(properties)
+            schemas[schemaName] = .object(schema)
+        }
+    }
+
+    if didChange {
+        components["schemas"] = .object(schemas)
+        root["components"] = .object(components)
+    }
+
+    return .init(didChange: didChange, matchCount: matchCount)
+}
+
 private func ensureResponseErrorSchemaAndRef(_ root: inout OrderedDictionary<String, JSONValue>) throws -> PatchOutcome {
     guard
         var components = root["components"]?.objectValue,
@@ -498,4 +572,3 @@ private func removeKidsAgeBandFromAppInfosFields(_ root: inout OrderedDictionary
 
     return .init(didChange: didChange, matchCount: matchCount)
 }
-
